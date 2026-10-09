@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nonton-Film — Cari & Tonton Trailer Film</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS & Alpine.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  
+  <!-- Config Tailwind -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+          },
+          colors: {
+            accent: '#2f55f5',
+            accentDark: '#7391ff'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    /* Styling khusus native dialog backdrop dan sembunyikan sebelum alpine me-load */
+    dialog::backdrop { background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px); }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+
+<body x-data="movieApp()" x-init="initApp()" :class="{ 'dark': isDark }" class="antialiased">
+  <!-- Main Wrapper Container untuk Dark Mode -->
+  <div class="min-h-screen bg-[#f6f7fb] text-[#151826] dark:bg-[#0e1119] dark:text-[#eef0f8] transition-colors duration-300 flex flex-col">
+    
+    <!-- Header -->
+    <header class="sticky top-0 z-20 bg-[#f6f7fb]/80 dark:bg-[#0e1119]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+      <div class="max-w-6xl mx-auto px-5 py-3 md:py-4 flex flex-wrap items-center gap-4">
+        
+        <!-- Logo -->
+        <a class="font-bold text-xl flex items-center gap-2" href="#">
+          <span class="w-7 h-7 rounded-lg bg-accent dark:bg-accentDark relative inline-block">
+            <span class="absolute left-2.5 top-[7px] border-l-[9px] border-l-white dark:border-l-[#0e1119] border-y-[6px] border-y-transparent"></span>
+          </span>
+          Nonton-Film
+        </a>
+        
+        <!-- Search Input -->
+        <label class="flex-1 w-full md:max-w-[460px] md:ml-auto relative order-3 md:order-none">
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input x-model="searchQuery" @input.debounce.500ms="fetchMovies()" type="search" placeholder="Cari judul film" 
+            class="w-full h-11 pl-11 pr-4 bg-white dark:bg-[#161a26] border border-gray-200 dark:border-gray-700 rounded-full focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all dark:focus:border-accentDark dark:focus:ring-accentDark/20">
+        </label>
+        
+        <!-- Theme Toggle -->
+        <button @click="toggleTheme()" class="w-11 h-11 rounded-full bg-white dark:bg-[#161a26] border border-gray-200 dark:border-gray-700 flex items-center justify-center md:ml-0 ml-auto hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors" aria-label="Ganti tema">
+          <svg x-show="!isDark" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          <svg x-cloak x-show="isDark" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-6xl mx-auto px-5 py-6 w-full">
+      
+      <!-- Hero Section (hanya tampil jika tidak ada pencarian) -->
+      <section x-show="!searchQuery && heroMovie" class="relative mt-2 rounded-3xl overflow-hidden min-h-[380px] md:min-h-[420px] flex items-end bg-[#eef0f6] dark:bg-[#1e2333] shadow-lg mb-10" x-cloak>
+        <img x-show="heroMovie?.backdrop_path" :src="getImgUrl(heroMovie?.backdrop_path, 'w1280')" class="absolute inset-0 w-full h-full object-cover" alt="">
+        <div class="absolute inset-0 bg-gradient-to-t from-[#080a12]/90 via-[#080a12]/40 to-[#080a12]/10"></div>
+        <div class="relative z-10 p-6 md:p-10 text-white max-w-2xl">
+          <div class="flex flex-wrap gap-2 mb-3 text-sm">
+            <span class="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md font-medium" x-text="`★ ${heroMovie?.vote_average?.toFixed(1) || 0}`"></span>
+            <span class="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md font-medium" x-text="getYear(heroMovie?.release_date)"></span>
+          </div>
+          <h1 class="text-3xl md:text-5xl font-bold mb-3 tracking-tight leading-tight" x-text="heroMovie?.title"></h1>
+          <p class="text-white/80 text-sm md:text-base line-clamp-3 mb-6" x-text="heroMovie?.overview || 'Sinopsis belum tersedia dalam Bahasa Indonesia.'"></p>
+          <button @click="openModal(heroMovie?.id)" class="inline-flex items-center gap-2 h-11 md:h-12 px-6 rounded-full bg-accent dark:bg-accentDark text-white dark:text-[#0e1119] font-semibold hover:brightness-110 active:scale-95 transition-all shadow-md">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            Tonton trailer
+          </button>
+        </div>
+      </section>
+
+      <!-- Tabs / Categories -->
+      <div class="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+        <h2 class="text-xl font-semibold mr-auto" x-text="searchQuery ? `Hasil pencarian “${searchQuery}”` : getCategoryTitle()"></h2>
+        
+        <template x-if="!searchQuery">
+          <div class="flex flex-wrap gap-2">
+            <button @click="setCategory('popular')" :class="category === 'popular' ? 'bg-[#151826] text-white dark:bg-[#eef0f8] dark:text-[#0e1119] border-transparent' : 'bg-white dark:bg-[#161a26] text-gray-500 border-gray-200 dark:border-gray-700 hover:text-gray-900 dark:hover:text-white'" class="px-4 py-2 rounded-full text-sm font-medium border transition-colors shadow-sm">Populer</button>
+            <button @click="setCategory('now_playing')" :class="category === 'now_playing' ? 'bg-[#151826] text-white dark:bg-[#eef0f8] dark:text-[#0e1119] border-transparent' : 'bg-white dark:bg-[#161a26] text-gray-500 border-gray-200 dark:border-gray-700 hover:text-gray-900 dark:hover:text-white'" class="px-4 py-2 rounded-full text-sm font-medium border transition-colors shadow-sm">Sedang tayang</button>
+            <button @click="setCategory('top_rated')" :class="category === 'top_rated' ? 'bg-[#151826] text-white dark:bg-[#eef0f8] dark:text-[#0e1119] border-transparent' : 'bg-white dark:bg-[#161a26] text-gray-500 border-gray-200 dark:border-gray-700 hover:text-gray-900 dark:hover:text-white'" class="px-4 py-2 rounded-full text-sm font-medium border transition-colors shadow-sm">Rating tertinggi</button>
+            <button @click="setCategory('upcoming')" :class="category === 'upcoming' ? 'bg-[#151826] text-white dark:bg-[#eef0f8] dark:text-[#0e1119] border-transparent' : 'bg-white dark:bg-[#161a26] text-gray-500 border-gray-200 dark:border-gray-700 hover:text-gray-900 dark:hover:text-white'" class="px-4 py-2 rounded-full text-sm font-medium border transition-colors shadow-sm">Segera tayang</button>
+          </div>
+        </template>
+      </div>
+
+      <!-- Movie Grid -->
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4 md:gap-6">
+        
+        <!-- Skeleton Loading -->
+        <template x-if="isLoading && movies.length === 0">
+          <template x-for="i in 12" :key="i">
+            <div class="aspect-[2/3] rounded-2xl bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 bg-[length:200%_100%] animate-[pulse_1.4s_infinite]"></div>
+          </template>
+        </template>
+
+        <!-- Cards -->
+        <template x-for="movie in movies" :key="movie.id">
+          <button @click="openModal(movie.id)" class="text-left group w-full">
+            <div class="relative aspect-[2/3] rounded-2xl overflow-hidden bg-gray-200 dark:bg-gray-800 shadow-sm group-hover:-translate-y-1 transition-transform duration-300">
+              <template x-if="movie.poster_path">
+                <img loading="lazy" :src="getImgUrl(movie.poster_path)" :alt="movie.title" class="w-full h-full object-cover">
+              </template>
+              <template x-if="movie.vote_average">
+                <div class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full bg-black/70 text-white text-xs font-semibold backdrop-blur-md" x-text="`★ ${movie.vote_average.toFixed(1)}`"></div>
+              </template>
+            </div>
+            <h3 class="mt-2.5 text-sm md:text-base font-semibold leading-snug line-clamp-2" x-text="movie.title"></h3>
+            <span class="text-xs md:text-sm text-gray-500 dark:text-gray-400" x-text="getYear(movie.release_date)"></span>
+          </button>
+        </template>
+      </div>
+
+      <!-- State: Empty (No Results) -->
+      <div x-show="!isLoading && movies.length === 0 && !error" class="text-center py-24 text-gray-500" x-cloak>
+        <strong class="block text-lg text-gray-900 dark:text-gray-100 mb-2">Film tidak ditemukan</strong>
+        Coba kata kunci lain.
+      </div>
+
+      <!-- State: Error -->
+      <div x-show="error" class="text-center py-24 text-gray-500" x-cloak>
+        <strong class="block text-lg text-red-600 dark:text-red-400 mb-2">Gagal memuat data</strong>
+        Periksa koneksi internet Anda. (<span x-text="error"></span>)
+      </div>
+
+      <!-- Load More Button -->
+      <div class="flex justify-center mt-10 mb-10" x-show="movies.length > 0 && page < totalPages">
+        <button @click="loadMore()" :disabled="isLoading" class="px-6 py-2.5 rounded-full border border-gray-300 dark:border-gray-700 bg-white dark:bg-[#161a26] font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50">
+          <span x-show="!isLoading">Muat lebih banyak</span>
+          <span x-show="isLoading">Memuat...</span>
+        </button>
+      </div>
+
+    </main>
+    
+    <!-- Footer -->
+    <footer class="border-t border-gray-200 dark:border-gray-800 py-8 text-center text-sm text-gray-500 dark:text-gray-400 mt-auto">
+      <div class="max-w-6xl mx-auto px-5">Data film dari TMDB. Situs ini menampilkan informasi dan trailer resmi.</div>
+    </footer>
+    
+    <!-- Modal Detail Film -->
+    <dialog x-ref="modal" id="modal" @close="closeModal()" class="m-auto w-[min(920px,94vw)] max-h-[92vh] rounded-3xl bg-white dark:bg-[#161a26] text-[#151826] dark:text-[#eef0f8] shadow-2xl p-0 overflow-auto backdrop:bg-black/60 backdrop:backdrop-blur-sm">
+      <button @click="$refs.modal.close()" class="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center text-xl hover:bg-black/80 transition-colors" aria-label="Tutup">&times;</button>
+      
+      <!-- Video Player / Cover Area -->
+      <div class="aspect-video bg-black relative">
+        <template x-if="isDetailLoading">
+          <div class="absolute inset-0 flex items-center justify-center text-white/50 text-sm">Memuat media...</div>
+        </template>
+        <template x-if="!isDetailLoading && trailerUrl">
+          <iframe :src="trailerUrl" class="w-full h-full border-0" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
+        </template>
+        <template x-if="!isDetailLoading && !trailerUrl && selectedMovie?.backdrop_path">
+          <img :src="getImgUrl(selectedMovie.backdrop_path, 'w1280')" class="w-full h-full object-cover">
+        </template>
+        <template x-if="!isDetailLoading && !trailerUrl && !selectedMovie?.backdrop_path">
+          <div class="absolute inset-0 flex items-center justify-center text-white bg-black text-sm md:text-base">Trailer belum tersedia</div>
+        </template>
+      </div>
+
+      <!-- Detail Info -->
+      <div class="p-6 md:p-8">
+        <template x-if="isDetailLoading">
+          <div class="animate-pulse space-y-4">
+            <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+            <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+            <div class="space-y-2 pt-4">
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+            </div>
+          </div>
+        </template>
+        
+        <template x-if="!isDetailLoading && selectedMovie">
+          <div>
+            <h2 class="text-2xl md:text-3xl font-bold mb-3 tracking-tight" x-text="selectedMovie.title"></h2>
+            
+            <div class="flex flex-wrap gap-2 text-xs md:text-sm mb-5">
+              <span class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1e2333] text-gray-700 dark:text-gray-300 font-medium" x-text="`★ ${selectedMovie.vote_average?.toFixed(1) || 0}`"></span>
+              <span class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1e2333] text-gray-700 dark:text-gray-300 font-medium" x-text="getYear(selectedMovie.release_date)"></span>
+              <template x-if="selectedMovie.runtime">
+                <span class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1e2333] text-gray-700 dark:text-gray-300 font-medium" x-text="`${Math.floor(selectedMovie.runtime / 60)}j ${selectedMovie.runtime % 60}m`"></span>
+              </template>
+              <template x-for="genre in selectedMovie.genres" :key="genre.id">
+                <span class="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-[#1e2333] text-gray-700 dark:text-gray-300 font-medium" x-text="genre.name"></span>
+              </template>
+            </div>
+            
+            <p class="text-gray-600 dark:text-gray-400 leading-relaxed max-w-[70ch]" x-text="selectedMovie.overview || 'Sinopsis belum tersedia dalam Bahasa Indonesia.'"></p>
+          </div>
+        </template>
+      </div>
+    </dialog>
+    
+  </div>
+
+  <script>
+    function movieApp() {
+      // Configuration
+      const API_KEY = 'bb3790487bef6960bc1c208d9bba8623';
+      const API = 'https://api.themoviedb.org/3';
+      const IMG = 'https://image.tmdb.org/t/p/';
+      
+      const categoryTitles = { 
+        popular: 'Sedang populer', 
+        now_playing: 'Sedang tayang', 
+        top_rated: 'Rating tertinggi', 
+        upcoming: 'Segera tayang' 
+      };
+
+      return {
+        // State
+        isDark: false,
+        searchQuery: '',
+        category: 'popular',
+        movies: [],
+        page: 1,
+        totalPages: 1,
+        isLoading: true,
+        error: null,
+        heroMovie: null,
+        
+        // Modal State
+        isDetailLoading: false,
+        selectedMovie: null,
+        trailerUrl: null,
+
+        // Initialize App
+        initApp() {
+          let t = localStorage.getItem('theme');
+          if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          this.isDark = t === 'dark';
+          
+          this.$watch('isDark', val => {
+            localStorage.setItem('theme', val ? 'dark' : 'light');
+          });
+
+          this.fetchMovies();
+        },
+        
+        toggleTheme() {
+          this.isDark = !this.isDark;
+        },
+        
+        getCategoryTitle() {
+          return categoryTitles[this.category];
+        },
+        
+        getImgUrl(path, size = 'w342') {
+          return path ? `${IMG}${size}${path}` : '';
+        },
+        
+        getYear(dateStr) {
+          return dateStr ? dateStr.substring(0, 4) : '—';
+        },
+
+        setCategory(cat) {
+          this.category = cat;
+          this.searchQuery = '';
+          this.page = 1;
+          this.fetchMovies();
+        },
+
+        async fetchMovies(append = false) {
+          if (!append) {
+            this.isLoading = true;
+            this.movies = [];
+            this.heroMovie = null;
+            this.error = null;
+          }
+          
+          try {
+            const endpoint = this.searchQuery ? '/search/movie' : `/movie/${this.category}`;
+            const url = new URL(API + endpoint);
+            url.searchParams.set('api_key', API_KEY);
+            url.searchParams.set('language', 'id-ID');
+            if (this.searchQuery) url.searchParams.set('query', this.searchQuery);
+            url.searchParams.set('page', this.page);
+            if (!this.searchQuery) url.searchParams.set('region', 'ID'); 
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            
+            this.totalPages = data.total_pages;
+            const results = data.results || [];
+            
+            if (append) {
+              this.movies = [...this.movies, ...results];
+            } else {
+              this.movies = results;
+              if (!this.searchQuery && results.length > 0) {
+                this.heroMovie = results.find(m => m.backdrop_path) || results[0];
+              }
+            }
+          } catch (err) {
+            this.error = err.message;
+            this.movies = [];
+          } finally {
+            this.isLoading = false;
+          }
+        },
+
+        loadMore() {
+          if (this.page < this.totalPages) {
+            this.page++;
+            this.fetchMovies(true);
+          }
+        },
+
+        async openModal(id) {
+          this.$refs.modal.showModal();
+          this.isDetailLoading = true;
+          this.selectedMovie = null;
+          this.trailerUrl = null;
+          
+          try {
+            const [d, vid] = await Promise.all([
+              fetch(`${API}/movie/${id}?api_key=${API_KEY}&language=id-ID`).then(r => r.json()),
+              fetch(`${API}/movie/${id}/videos?api_key=${API_KEY}&language=en-US`).then(r => r.json())
+            ]);
+            
+            this.selectedMovie = d;
+            const yt = (vid.results || []).filter(v => v.site === 'YouTube');
+            const trailer = yt.find(v => v.type === 'Trailer' && v.official) || yt.find(v => v.type === 'Trailer') || yt[0];
+            
+            if (trailer) {
+              this.trailerUrl = `https://www.youtube-nocookie.com/embed/${trailer.key}?rel=0`;
+            }
+          } catch (e) {
+            console.error('Gagal mengambil detail:', e);
+          } finally {
+            this.isDetailLoading = false;
+          }
+        },
+
+        closeModal() {
+          // Kosongkan URL iframe saat tutup agar audio tidak terus bermain
+          this.trailerUrl = null; 
+        }
+      }
+    }
+  </script>
+</body>
+</html>
